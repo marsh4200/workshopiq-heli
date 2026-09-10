@@ -1,0 +1,28 @@
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# System deps (kept minimal; asyncpg ships wheels)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+
+# Uploads live on a mounted volume in compose
+RUN mkdir -p /app/uploads
+
+EXPOSE 8000
+
+# Multiple workers so the API uses more than one CPU core under load (JSON
+# serialization, login hashing, QR generation). Tune via WEB_CONCURRENCY in
+# compose / .env; defaults to 4. Bootstrap is advisory-locked so workers don't
+# race on first-boot seeding.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-4}"]

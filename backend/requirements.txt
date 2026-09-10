@@ -1,0 +1,23 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+python-multipart==0.0.17
+httpx==0.28.1
+anyio==4.6.2.post1
+qrcode[pil]==7.4.2
+# Pillow was already installed transitively via qrcode[pil]; pinned
+# explicitly now that file_service.py imports it directly to compact
+# uploaded photos on the way in.
+Pillow==12.3.0
+smbprotocol==1.16.1
+reportlab==4.2.5
+# Ed25519 signature verification for offline license activation
+# (app/services/licensing.py). Already pulled in transitively by
+# python-jose[cryptography] above; pinned explicitly now that licensing.py
+# imports it directly.
+cryptography==43.0.3

@@ -1,0 +1,21 @@
+# Build context is the repository root (see docker-compose.yml).
+
+# ---- build stage ----
+FROM node:20-alpine AS build
+
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm install
+COPY frontend/ .
+RUN npm run build
+
+# ---- serve stage ----
+FROM nginx:1.27-alpine
+
+RUN rm /etc/nginx/conf.d/default.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/workshopiq.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 9918
+
+CMD ["nginx", "-g", "daemon off;"]
