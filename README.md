@@ -1,4 +1,4 @@
-# WorkshopIQ
+    # WorkshopIQ
 
 **Engineering Workshop Intake, Inspection & Client Portal**
 
@@ -136,6 +136,32 @@ docker compose down            # stop (data is preserved in volumes)
 docker compose up -d --build   # rebuild after changes
 ```
 
+**Uninstalling** — from inside the project folder (`docker compose` needs `docker-compose.yml` in the current directory to find anything):
+
+```bash
+cd ~/workshopiq-heli            # or wherever it was cloned
+docker compose down -v          # stops + removes the containers AND the volumes
+cd ~
+rm -rf ~/workshopiq-heli        # deletes the cloned repo
+```
+
+`-v` is the part that matters: it deletes `db_data` and `uploads_data`, which means every job, customer record and photo is gone for good. Run `./scripts/backup.sh` first if there's any chance you'd want that data back — leave off `-v` (just `docker compose down`) if you only want to stop the app, not erase it; `docker compose up -d` brings it back later with everything intact.
+
+**If the project folder is gone but the containers are still running** — this happens if `rm -rf` on the folder ran before (or instead of) `docker compose down`, which is easy to do by accident when a `cd` fails silently and the `rm -rf` on the next line runs anyway. `docker compose` can't act on containers without its `docker-compose.yml`, so at that point clean up directly instead:
+
+```bash
+docker compose ls                                   # confirms it's still running + where its config file WAS
+docker ps -a --filter name=workshopiq                # exact container names
+docker volume ls | grep workshopiq                   # exact volume names
+
+docker stop workshopiq-frontend workshopiq-backend workshopiq-db
+docker rm workshopiq-frontend workshopiq-backend workshopiq-db
+docker volume rm workshopiq-heli_db_data workshopiq-heli_uploads_data
+docker network ls --filter name=workshopiq            # remove any leftover compose network the same way
+```
+
+Same data-loss warning applies to that `docker volume rm` line as above — it's the same irreversible step, just done by hand instead of through `docker compose down -v`.
+
 ---
 
 ## Default roles
@@ -153,3 +179,5 @@ docker compose up -d --build   # rebuild after changes
 - Change `admin`'s password on first login (enforced) and set a strong `SECRET_KEY`.
 - Set real database credentials in `.env` before exposing the service.
 - Put WorkshopIQ behind HTTPS (a reverse proxy / tunnel) for any internet-facing deployment.
+
+    
