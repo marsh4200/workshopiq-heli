@@ -42,6 +42,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import KeyIcon from '@mui/icons-material/VpnKeyOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
@@ -49,8 +51,23 @@ import { useThemeMode } from '../context/ThemeModeContext';
 import { Logomark } from './common';
 import { useDeviceType } from '../hooks/useDeviceType';
 import ReviewNotifier from './ReviewNotifier';
-import { getPendingClientSignatures, getPendingClosures, getPendingReviews } from '../api/client';
+import {
+  getLicenseStatus,
+  getPendingClientSignatures,
+  getPendingClosures,
+  getPendingReviews,
+} from '../api/client';
+import type { LicenseStatus } from '../types';
 import { fontDisplay, fontMono } from '../theme/theme';
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+// Same rounding convention as Settings.tsx's licensing panel: ceil so
+// "expires later today" reads as 0 days left, and a date a few hours in
+// the past still reads as clearly expired rather than "0 days left".
+function daysUntil(isoDate: string): number {
+  return Math.ceil((new Date(isoDate).getTime() - Date.now()) / MS_PER_DAY);
+}
 
 const DRAWER = 262;
 
@@ -125,6 +142,30 @@ export default function Layout() {
   const [closureCount, setClosureCount] = useState(0);
   const [signCount, setSignCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
+
+  // Sidebar footer license badge. By the time Layout renders, App.tsx has
+  // already gated the whole app on activation — so this is never "not
+  // activated" in practice, just a status readout (and countdown, if the
+  // license carries an expiry) rather than another gate. Refetched
+  // occasionally, mainly so a renewed license's new expiry shows up without
+  // needing a full reload.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      getLicenseStatus()
+        .then((s) => {
+          if (!cancelled) setLicense(s);
+        })
+        .catch(() => undefined);
+    };
+    poll();
+    const id = setInterval(poll, 5 * 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -282,20 +323,51 @@ export default function Layout() {
       </Box>
 
       <Divider />
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontFamily: fontMono, fontSize: 11, color: 'text.disabled' }}>
-          v{settings?.current_version || '1.0.0'}
-        </Typography>
-        {settings?.available_version && settings.available_version !== settings.current_version && (
-          <Chip
-            label="Update available"
-            size="small"
-            color="warning"
-            variant="outlined"
-            onClick={() => navigate('/settings')}
-            sx={{ cursor: 'pointer', fontSize: 11 }}
-          />
-        )}
+      <Box sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontFamily: fontMono, fontSize: 11, color: 'text.disabled' }}>
+            v{settings?.current_version || '1.0.0'}
+          </Typography>
+          {settings?.available_version && settings.available_version !== settings.current_version && (
+            <Chip
+              label="Update available"
+              size="small"
+              color="warning"
+              variant="outlined"
+              onClick={() => navigate('/settings')}
+              sx={{ cursor: 'pointer', fontSize: 11 }}
+            />
+          )}
+        </Box>
+        {license?.activated &&
+          (() => {
+            const days = license.expires_at ? daysUntil(license.expires_at) : null;
+            const expired = days !== null && days < 0;
+            const expiringSoon = days !== null && !expired && days < 30;
+            const label = expired
+              ? 'License expired'
+              : expiringSoon
+              ? `Expires in ${days} day${days === 1 ? '' : 's'}`
+              : 'License active';
+            const tooltip = !license.expires_at
+              ? 'Perpetual license — no expiry'
+              : `${expired ? 'Expired' : 'Valid until'} ${new Date(
+                  license.expires_at,
+                ).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+            return (
+              <Tooltip title={tooltip}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color={expired ? 'error' : expiringSoon ? 'warning' : 'success'}
+                  icon={expired ? <ErrorIcon /> : <CheckCircleIcon />}
+                  label={label}
+                  onClick={() => navigate('/settings')}
+                  sx={{ mt: 1, cursor: 'pointer', fontSize: 11, height: 22 }}
+                />
+              </Tooltip>
+            );
+          })()}
       </Box>
     </Box>
   );

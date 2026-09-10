@@ -581,7 +581,7 @@ export default function Settings() {
                   ? 'Perpetual license — no expiry'
                   : daysUntil(license.expires_at) < 0
                   ? 'License has expired'
-                  : `Renews in ${daysUntil(license.expires_at)} day${daysUntil(license.expires_at) === 1 ? '' : 's'}`
+                  : `Expires in ${daysUntil(license.expires_at)} day${daysUntil(license.expires_at) === 1 ? '' : 's'}`
               }
               badge={
                 license?.activated && license.expires_at && daysUntil(license.expires_at) < 30 ? (
@@ -1161,7 +1161,7 @@ export default function Settings() {
                           ? `Expired ${formatDate(license.expires_at as string)} (${Math.abs(days)} day${
                               Math.abs(days) === 1 ? '' : 's'
                             } ago)`
-                          : `Valid until ${formatDate(license.expires_at as string)} — renews in ${days} day${
+                          : `Valid until ${formatDate(license.expires_at as string)} — expires in ${days} day${
                               days === 1 ? '' : 's'
                             }`}
                       </Typography>
