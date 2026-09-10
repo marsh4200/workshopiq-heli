@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Body background, color-scheme and scrollbar-thumb colour are driven by the
+   active MUI theme (see theme/theme.ts -> MuiCssBaseline) so they follow each
+   user's light/dark choice. Only mode-agnostic rules live here. */
+html, body, #root { height: 100%; margin: 0; }
+
+/* The page itself never scrolls sideways — only up/down. Anything wider
+   than the viewport (tables, long rows) scrolls INSIDE its own card
+   instead of dragging the whole layout with it (see the mobile rule
+   below). Chiefly an Android fix: its momentum scrolling loves to wander
+   diagonally the moment any element overflows the viewport. */
+html, body { overflow-x: hidden; max-width: 100vw; }
+#root { overflow-x: hidden; }
+
+@media (max-width: 900px) {
+  /* MUI Card defaults to overflow:hidden which silently CLIPS wide tables
+     on phones. Let the card scroll its own content horizontally so every
+     column stays reachable while the page stays locked to vertical. */
+  .MuiCard-root { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Tabular numerals everywhere figures matter */
+.mono { font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
