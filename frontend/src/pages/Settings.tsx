@@ -37,6 +37,9 @@ import SettingsBackupRestoreOutlinedIcon from '@mui/icons-material/SettingsBacku
 import AndroidIcon from '@mui/icons-material/Android';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
+import AllInclusiveIcon from '@mui/icons-material/AllInclusive';
 import type { ReactNode } from 'react';
 import { SectionHeader } from '../components/common';
 import {
@@ -47,6 +50,7 @@ import {
   applyUpdate,
   getUpdateStatus,
   sendTestEmail,
+  getLicenseStatus,
   apiError,
 } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
@@ -54,7 +58,7 @@ import { useAuth } from '../context/AuthContext';
 import UpdateProgressDialog from '../components/UpdateProgressDialog';
 import BackupRestore from '../components/BackupRestore';
 import AppDownload from '../components/AppDownload';
-import type { AppSettings } from '../types';
+import type { AppSettings, LicenseStatus } from '../types';
 
 const NO_RIGHTS_MSG =
   'Unfortunately, you do not have these rights. Please contact your system administrator.';
@@ -80,7 +84,35 @@ function Section({
   );
 }
 
-type SettingsSection = 'branding' | 'email' | 'notifications' | 'updates' | 'backup' | 'android';
+type SettingsSection =
+  | 'branding'
+  | 'email'
+  | 'notifications'
+  | 'updates'
+  | 'backup'
+  | 'android'
+  | 'licensing';
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function daysUntil(isoDate: string): number {
+  // Ceil so "expires later today" reads as 0 days left rather than -0/1
+  // depending on time-of-day, and a date a few hours in the past still
+  // reads as clearly expired rather than "0 days left".
+  return Math.ceil((new Date(isoDate).getTime() - Date.now()) / MS_PER_DAY);
+}
+
+function formatDate(isoDate: string): string {
+  try {
+    return new Date(isoDate).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return isoDate;
+  }
+}
 
 function Tile({
   icon,
@@ -208,8 +240,16 @@ export default function Settings() {
       .then(setS)
       .catch((e) => setError(apiError(e, 'Failed to load settings')));
 
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
+  const [licenseError, setLicenseError] = useState('');
+  const loadLicense = () =>
+    getLicenseStatus()
+      .then(setLicense)
+      .catch((e) => setLicenseError(apiError(e, 'Failed to load license status')));
+
   useEffect(() => {
     load();
+    loadLicense();
   }, []);
 
   const set = (k: keyof AppSettings, v: string) =>
@@ -478,6 +518,32 @@ export default function Settings() {
               title="Android App"
               subtitle="Download the WorkshopIQ Android app (.apk) to install on a device."
               onClick={() => setSection('android')}
+            />
+          )}
+          {isAdmin && (
+            <Tile
+              icon={<VerifiedUserOutlinedIcon />}
+              title="Licensing"
+              subtitle={
+                !license || !license.activated
+                  ? 'License status'
+                  : !license.expires_at
+                  ? 'Perpetual license — no expiry'
+                  : daysUntil(license.expires_at) < 0
+                  ? 'License has expired'
+                  : `Renews in ${daysUntil(license.expires_at)} day${daysUntil(license.expires_at) === 1 ? '' : 's'}`
+              }
+              badge={
+                license?.activated && license.expires_at && daysUntil(license.expires_at) < 30 ? (
+                  <Chip
+                    size="small"
+                    color={daysUntil(license.expires_at) < 0 ? 'error' : 'warning'}
+                    label={daysUntil(license.expires_at) < 0 ? 'Expired' : 'Renew soon'}
+                    sx={{ fontWeight: 700 }}
+                  />
+                ) : undefined
+              }
+              onClick={() => setSection('licensing')}
             />
           )}
         </Grid>
@@ -918,6 +984,139 @@ export default function Settings() {
           subtitle="Download the WorkshopIQ Android app (.apk) to install on a device."
         >
           <AppDownload />
+        </Section>
+      )}
+
+      {section === 'licensing' && isAdmin && (
+        <Section
+          icon={<VerifiedUserOutlinedIcon />}
+          title="Licensing"
+          subtitle="Your WorkshopIQ license — who it's issued to, and when it needs renewing."
+        >
+          {licenseError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLicenseError('')}>
+              {licenseError}
+            </Alert>
+          )}
+
+          {!license ? (
+            <Box sx={{ display: 'grid', placeItems: 'center', py: 4 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : (
+            <>
+              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2.5 }}>
+                <Chip
+                  size="small"
+                  color={license.activated ? 'success' : 'error'}
+                  icon={license.activated ? <CheckCircleIcon /> : <ErrorIcon />}
+                  label={license.activated ? 'Active' : 'Not Activated'}
+                  sx={{ fontWeight: 700 }}
+                />
+                {license.activated && !license.expires_at && (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    icon={<AllInclusiveIcon />}
+                    label="Perpetual — no expiry"
+                    sx={{ fontWeight: 700 }}
+                  />
+                )}
+              </Stack>
+
+              <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="overline" color="text.secondary" letterSpacing={1}>
+                    Licensed To
+                  </Typography>
+                  <Typography variant="body1" fontWeight={700}>
+                    {license.client || '—'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="overline" color="text.secondary" letterSpacing={1}>
+                    Product
+                  </Typography>
+                  <Typography variant="body1" fontWeight={700}>
+                    {license.product || '—'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="overline" color="text.secondary" letterSpacing={1}>
+                    Issued
+                  </Typography>
+                  <Typography variant="body1" fontWeight={700}>
+                    {license.issued_at ? formatDate(license.issued_at) : '—'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="overline" color="text.secondary" letterSpacing={1}>
+                    Server ID
+                  </Typography>
+                  <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+                    {license.server_id || '—'}
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ my: 2.5 }} />
+
+              {!license.expires_at ? (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: 'action.hover',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <AllInclusiveIcon sx={{ color: 'success.main' }} />
+                  <Box>
+                    <Typography fontWeight={700}>This license never expires</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      No renewal needed — nothing to do here.
+                    </Typography>
+                  </Box>
+                </Box>
+              ) : (
+                (() => {
+                  const days = daysUntil(license.expires_at as string);
+                  const expired = days < 0;
+                  const soon = !expired && days <= 30;
+                  const severity = expired ? 'error' : soon ? 'warning' : 'success';
+                  return (
+                    <Alert
+                      severity={severity}
+                      variant="outlined"
+                      icon={<EventBusyOutlinedIcon />}
+                      sx={{ alignItems: 'flex-start' }}
+                    >
+                      <Typography fontWeight={700} sx={{ mb: 0.25 }}>
+                        {expired
+                          ? `Expired ${formatDate(license.expires_at as string)} (${Math.abs(days)} day${
+                              Math.abs(days) === 1 ? '' : 's'
+                            } ago)`
+                          : `Valid until ${formatDate(license.expires_at as string)} — renews in ${days} day${
+                              days === 1 ? '' : 's'
+                            }`}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {expired
+                          ? 'This installation will stop working until a new license key is entered. Contact AR Smart Home Server to renew.'
+                          : soon
+                          ? 'Getting close to renewal — contact AR Smart Home Server ahead of time so there’s no interruption.'
+                          : 'No action needed yet.'}
+                      </Typography>
+                    </Alert>
+                  );
+                })()
+              )}
+            </>
+          )}
         </Section>
       )}
 
