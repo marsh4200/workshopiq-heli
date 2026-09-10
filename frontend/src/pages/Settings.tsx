@@ -51,6 +51,7 @@ import {
   getUpdateStatus,
   sendTestEmail,
   getLicenseStatus,
+  activateLicense,
   apiError,
 } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
@@ -58,6 +59,7 @@ import { useAuth } from '../context/AuthContext';
 import UpdateProgressDialog from '../components/UpdateProgressDialog';
 import BackupRestore from '../components/BackupRestore';
 import AppDownload from '../components/AppDownload';
+import { REASON_MESSAGES } from './Activate';
 import type { AppSettings, LicenseStatus } from '../types';
 
 const NO_RIGHTS_MSG =
@@ -246,6 +248,54 @@ export default function Settings() {
     getLicenseStatus()
       .then(setLicense)
       .catch((e) => setLicenseError(apiError(e, 'Failed to load license status')));
+
+  // Renew-in-place: paste a new key here at any point (well before expiry,
+  // ideally) and it takes effect immediately — no need to wait for the old
+  // one to actually run out first.
+  const [renewKey, setRenewKey] = useState('');
+  const [renewing, setRenewing] = useState(false);
+  const [renewError, setRenewError] = useState('');
+  const [renewSuccess, setRenewSuccess] = useState('');
+  const [copiedServerId, setCopiedServerId] = useState(false);
+
+  const copyServerId = async () => {
+    if (!license?.server_id) return;
+    try {
+      await navigator.clipboard.writeText(license.server_id);
+      setCopiedServerId(true);
+      setTimeout(() => setCopiedServerId(false), 1500);
+    } catch {
+      // Clipboard API unavailable — the ID is still selectable text.
+    }
+  };
+
+  const submitRenewal = async () => {
+    const key = renewKey.trim();
+    if (!key) return;
+    setRenewing(true);
+    setRenewError('');
+    setRenewSuccess('');
+    try {
+      const result = await activateLicense(key);
+      if (result.activated) {
+        setLicense(result);
+        setRenewKey('');
+        setRenewSuccess(
+          result.expires_at
+            ? `Renewed — now valid until ${formatDate(result.expires_at)}.`
+            : 'Renewed — this license is perpetual, no further expiry.',
+        );
+      } else {
+        setRenewError(
+          REASON_MESSAGES[result.reason || ''] || 'That license key could not be activated.',
+        );
+      }
+    } catch (e) {
+      setRenewError(apiError(e, 'Renewal failed'));
+    } finally {
+      setRenewing(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -1053,9 +1103,20 @@ export default function Settings() {
                   <Typography variant="overline" color="text.secondary" letterSpacing={1}>
                     Server ID
                   </Typography>
-                  <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
-                    {license.server_id || '—'}
-                  </Typography>
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+                      {license.server_id || '—'}
+                    </Typography>
+                    {license.server_id && (
+                      <Button
+                        size="small"
+                        onClick={copyServerId}
+                        sx={{ minWidth: 0, px: 0.75, color: 'text.secondary' }}
+                      >
+                        {copiedServerId ? 'Copied' : 'Copy'}
+                      </Button>
+                    )}
+                  </Stack>
                 </Grid>
               </Grid>
 
@@ -1115,6 +1176,50 @@ export default function Settings() {
                   );
                 })()
               )}
+
+              <Divider sx={{ my: 2.5 }} />
+
+              <Typography variant="overline" color="text.secondary" letterSpacing={1}>
+                Renew License
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, mt: 0.25 }}>
+                Got a new license key from AR Smart Home Server? Paste it below and it takes
+                effect immediately — you don't need to wait for the current one to expire first.
+              </Typography>
+
+              {renewError && (
+                <Alert severity="error" variant="outlined" sx={{ mb: 1.5 }} onClose={() => setRenewError('')}>
+                  {renewError}
+                </Alert>
+              )}
+              {renewSuccess && (
+                <Alert
+                  severity="success"
+                  variant="outlined"
+                  sx={{ mb: 1.5 }}
+                  onClose={() => setRenewSuccess('')}
+                >
+                  {renewSuccess}
+                </Alert>
+              )}
+
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                placeholder="WIQL1...."
+                value={renewKey}
+                onChange={(e) => setRenewKey(e.target.value)}
+                sx={{ mb: 1.5, '& textarea': { fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all' } }}
+              />
+              <Button
+                variant="contained"
+                startIcon={<VerifiedUserOutlinedIcon />}
+                onClick={submitRenewal}
+                disabled={renewing || !renewKey.trim()}
+              >
+                {renewing ? 'Renewing…' : 'Renew Now'}
+              </Button>
             </>
           )}
         </Section>

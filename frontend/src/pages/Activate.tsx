@@ -16,7 +16,7 @@ import type { LicenseStatus } from '../types';
 import { fontDisplay, fontMono } from '../theme/theme';
 import { Logomark } from '../components/common';
 
-const REASON_MESSAGES: Record<string, string> = {
+export const REASON_MESSAGES: Record<string, string> = {
   not_activated: 'This install has not been activated yet.',
   invalid_or_unsigned: "That license key isn't recognised. Check it was copied in full.",
   wrong_product: 'That license key is for a different product.',
