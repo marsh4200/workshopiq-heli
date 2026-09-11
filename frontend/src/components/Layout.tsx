@@ -355,17 +355,27 @@ export default function Layout() {
                   license.expires_at,
                 ).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
             return (
-              <Tooltip title={tooltip}>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  color={expired ? 'error' : expiringSoon ? 'warning' : 'success'}
-                  icon={expired ? <ErrorIcon /> : <CheckCircleIcon />}
-                  label={label}
-                  onClick={() => navigate('/settings')}
-                  sx={{ mt: 1, cursor: 'pointer', fontSize: 11, height: 22 }}
-                />
-              </Tooltip>
+              <>
+                <Tooltip title={tooltip}>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    color={expired ? 'error' : expiringSoon ? 'warning' : 'success'}
+                    icon={expired ? <ErrorIcon /> : <CheckCircleIcon />}
+                    label={label}
+                    onClick={() => navigate('/settings')}
+                    sx={{ mt: 1, cursor: 'pointer', fontSize: 11, height: 22 }}
+                  />
+                </Tooltip>
+                {license.client && (
+                  <Typography
+                    noWrap
+                    sx={{ mt: 0.5, fontSize: 11, color: 'text.disabled' }}
+                  >
+                    Licensed to {license.client}
+                  </Typography>
+                )}
+              </>
             );
           })()}
       </Box>
