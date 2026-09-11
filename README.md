@@ -1,5 +1,7 @@
     # WorkshopIQ
 
+**This is licensed software. A valid license key is required to activate and run this installation.**
+
 **Engineering Workshop Intake, Inspection & Client Portal**
 
 WorkshopIQ is a self-hosted web application for engineering workshops to manage jobs from intake through inspection, production and collection — with a built-in client portal so customers can follow their own jobs in real time.
