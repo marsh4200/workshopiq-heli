@@ -55,14 +55,16 @@ async def lifespan(app: FastAPI):
     await run_bootstrap()
     logger.info("Bootstrap complete")
     samba_task = asyncio.create_task(scheduler_loop())
+    license_task = asyncio.create_task(licensing.renewal_loop())
     try:
         yield
     finally:
-        samba_task.cancel()
-        try:
-            await samba_task
-        except asyncio.CancelledError:
-            pass
+        for task in (samba_task, license_task):
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(
@@ -120,6 +122,7 @@ async def no_store_api_responses(request: Request, call_next):
 _LICENSE_EXEMPT_PATHS = {
     f"{settings.API_PREFIX}/license/status",
     f"{settings.API_PREFIX}/license/activate",
+    f"{settings.API_PREFIX}/license/request",
     f"{settings.API_PREFIX}/health",
 }
 

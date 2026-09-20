@@ -463,4 +463,7 @@ export interface LicenseStatus {
   license_id?: string;
   issued_at?: string;
   expires_at?: string | null;
+  online_reason?: string | null;
+  last_contact?: string | null;
+  last_result?: string | null;
 }

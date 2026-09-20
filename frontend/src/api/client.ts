@@ -100,6 +100,9 @@ export const getLicenseStatus = async () =>
   (await api.get<LicenseStatus>('/license/status')).data;
 export const activateLicense = async (license_key: string) =>
   (await api.post<LicenseStatus>('/license/activate', { license_key })).data;
+// Ask the AR Smart Home licence server for this install's key.
+export const requestLicense = async () =>
+  (await api.post<LicenseStatus>('/license/request')).data;
 
 // Auth
 export const login = async (username: string, password: string) => {

@@ -42,3 +42,10 @@ async def activate(body: dict, db: AsyncSession = Depends(get_db)):
         await db.commit()
         licensing.bust_cache()
     return {**result, "server_id": server_id}
+
+
+@router.post("/request")
+async def request_license():
+    """Ask the licence server for this install's key (same call AR HDL BUSPRO
+    and GuestIQ make). Reachable while unlicensed — see license_gate."""
+    return {**(await licensing.request_from_server()), **licensing.last_contact()}
